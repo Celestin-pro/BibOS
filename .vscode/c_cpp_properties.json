@@ -1,0 +1,18 @@
+{
+    "configurations": [
+        {
+            "name": "WSL-Ubuntu",
+            "includePath": [
+                "${workspaceFolder}/**"
+            ],
+            "defines": [
+                "__GNUC__"
+            ],
+            "compilerPath": "/usr/bin/gcc",
+            "cStandard": "gnu99",
+            "intelliSenseMode": "linux-gcc-x86",
+            "wslPath": ""
+        }
+    ],
+    "version": 4
+}
