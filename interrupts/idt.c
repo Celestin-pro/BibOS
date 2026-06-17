@@ -37,25 +37,31 @@ void remap_pic(void) {
     outb(0x21, 0x20); outb(0xA1, 0x28); // Master PIC = case 32, Slave PIC = case 40
     outb(0x21, 0x04); outb(0xA1, 0x02); // Liaison entre les PICs
     outb(0x21, 0x01); outb(0xA1, 0x01); // Mode 8086
-    outb(0x21, 0x0);  outb(0xA1, 0x0);  // Activer toutes les lignes
+    // Au lieu de outb(0x21, 0x0); outb(0xA1, 0x0);
+    outb(0x21, 0xFD);  // 0xFD = 11111101 en binaire -> On active UNIQUEMENT l'IRQ 1 (clavier)
+    outb(0xA1, 0xFF);  // 0xFF = 11111111 en binaire -> On coupe toutes les lignes de l'esclave
 }
 
 // Initialisation globale de l'IDT
+extern void default_handler_asm(void);
+extern void keyboard_handler_asm(void);
+
 void init_idt(void) {
     extern void keyboard_handler_asm(void);
+    extern void default_handler_asm(void); // Déclaration du handler de secours
 
+    // Au lieu de mettre 0, on met le handler par défaut partout !
     for(int i = 0; i < 256; i++) {
-        idt_set_gate(i, 0, 0, 0);
+        idt_set_gate(i, (unsigned int)default_handler_asm, 0x08, 0x8E);
     }
 
     idt_ptr.limit = (sizeof(struct idt_entry_struct) * 256) - 1;
     idt_ptr.base = (unsigned int)&idt;
 
-    remap_pic(); // 1. On décale le conflit matériel
+    remap_pic(); // Assure-toi que la fin utilise bien 0xFD et 0xFF !
 
-    // 2. On attribue la case 33 (0x21) à notre enrobage Assembleur du clavier
-    idt_set_gate(33, (unsigned int)keyboard_handler_asm, 0x08, 0x8E);
+    // On écrase la case 33 spécifiquement pour le vrai clavier
+    idt_set_gate(33, (unsigned int)keyboard_handler_asm, 0x10, 0x8E);
 
-    // 3. On donne le pointeur au processeur via l'assembleur
     init_idt_asm((unsigned int)&idt_ptr);
 }

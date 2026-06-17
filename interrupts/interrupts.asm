@@ -1,30 +1,37 @@
 bits 32
-
+global default_handler_asm
 global keyboard_handler_asm
 extern keyboard_handler_c
+extern default_handler_c
+
 
 keyboard_handler_asm:
-    cli
-    pusha                    ; 1. Sauvegarde les registres généraux
-
-    push ds                  ; 2. Sauvegarde les segments actuels
-    push es
-    push fs
-    push gs
-
-    mov ax, 0x10             ; 3. Force le sélecteur de données du Noyau (0x10 est la norme GRUB/Multiboot)
+    pushad
+    
+    ; Sauvegarde et alignement des segments de données
+    mov ax, ds
+    push eax
+    
+    mov ax, 0x18     ; <--- CORRECTION ICI : Le segment de données de GRUB est 0x18
     mov ds, ax
     mov es, ax
     mov fs, ax
     mov gs, ax
+    
+    call keyboard_handler_c
+    
+    ; Restauration
+    pop eax
+    mov ds, ax
+    mov es, ax
+    mov fs, ax
+    mov gs, ax
+    
+    popad
+    iretd
 
-    call keyboard_handler_c  ; 4. Appelle ton code C dans driver.c
-
-    pop gs                   ; 5. Restaure les segments
-    pop fs
-    pop es
-    pop ds
-
-    popa                     ; 6. Restaure les registres généraux
-    sti                      ; 7. Réactive les interruptions
-    iret                     ; 7. Retour d'interruption et réactivation des IRQ
+default_handler_asm:
+    pushad                ; Sauvegarde les registres
+    call default_handler_c ; Appelle le C pour afficher l'erreur
+    popad
+    iretd                 ; Retour d'interruption protégé

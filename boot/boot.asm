@@ -5,17 +5,16 @@ FLAGS       equ  MODULEALIGN | MEMINFO
 MAGIC       equ  0x1BADB002
 CHECKSUM    equ -(MAGIC + FLAGS)
 
-section .multiboot progbits alloc
-
+section .multiboot
 align 4
     dd MAGIC
     dd FLAGS
     dd CHECKSUM
 
-    section .bss
+section .bss         ; <--- BIEN METTRE L'ESPACE ICI !
 align 16
 stack_bottom:
-    resb 16384 ; Réserve 16 Ko pour la pile d'exécution
+    resb 16384       ; Réserve 16 Ko pour la pile d'exécution
 stack_top:
 
 section .text
