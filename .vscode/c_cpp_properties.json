@@ -10,7 +10,7 @@
             ],
             "compilerPath": "/usr/bin/gcc",
             "cStandard": "gnu99",
-            "intelliSenseMode": "linux-gcc-x86",
+            "intelliSenseMode": "windows-gcc-x86",
             "wslPath": ""
         }
     ],

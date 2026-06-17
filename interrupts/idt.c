@@ -1,21 +1,20 @@
 // Définition d'une case de l'IDT (8 octets)
 struct idt_entry_struct {
-    unsigned short base_low;  // Les 16 bits de poids faible de l'adresse de la fonction
-    unsigned short sel;       // Le sélecteur de segment (Code du noyau)
-    unsigned char  always0;   // Doit toujours être à 0
-    unsigned char  flags;     // Les droits d'accès (0x8E pour une interruption active)
-    unsigned short base_high; // Les 16 bits de poids fort de l'adresse de la fonction
-} __attribute__((packed));
+    unsigned short base_low;
+    unsigned short sel;
+    unsigned char  always0;
+    unsigned char  flags;
+    unsigned short base_high;
+} __attribute__((packed)) __attribute__((aligned(8)));
 
-// Définition du pointeur global que le processeur va lire
 struct idt_ptr_struct {
-    unsigned short limit;     // Taille de la table
-    unsigned int   base;      // Adresse de début de la table
-} __attribute__((packed));
+    unsigned short limit;
+    unsigned int   base;
+} __attribute__((packed)) __attribute__((aligned(4)));
 
-// Notre table de 256 interruptions
-struct idt_entry_struct idt[256];
-struct idt_ptr_struct idt_ptr;
+// On force le compilateur à garder ces variables exactes et visibles
+__attribute__((aligned(16))) struct idt_entry_struct idt[256];
+__attribute__((aligned(16))) struct idt_ptr_struct idt_ptr;
 
 // Fonction de communication matérielle
 extern void init_idt_asm(unsigned int idt_ptr_addr);
@@ -45,8 +44,12 @@ void remap_pic(void) {
 void init_idt(void) {
     extern void keyboard_handler_asm(void);
 
+    for(int i = 0; i < 256; i++) {
+        idt_set_gate(i, 0, 0, 0);
+    }
+
     idt_ptr.limit = (sizeof(struct idt_entry_struct) * 256) - 1;
-    idt_ptr.base  = (unsigned int)&idt;
+    idt_ptr.base = (unsigned int)&idt;
 
     remap_pic(); // 1. On décale le conflit matériel
 

@@ -5,13 +5,14 @@ FLAGS       equ  MODULEALIGN | MEMINFO
 MAGIC       equ  0x1BADB002
 CHECKSUM    equ -(MAGIC + FLAGS)
 
-section .multiboot
+section .multiboot progbits alloc
+
 align 4
     dd MAGIC
     dd FLAGS
     dd CHECKSUM
 
-section .bootstrap_stack, nobits
+    section .bss
 align 16
 stack_bottom:
     resb 16384 ; Réserve 16 Ko pour la pile d'exécution
@@ -37,13 +38,13 @@ inb:
 
 global outb
 outb:
-    mov edx, [esp + 4]
-    mov eax, [esp + 8]
+    mov dx,  [esp + 4]    ; port  (word)
+    mov al,  [esp + 8]    ; data  (byte)
     out dx, al
     ret
 
 global init_idt_asm
 init_idt_asm:
-    mov edx, [esp + 4]
-    lidt [edx]               ; Charge officiellement la table IDT !
+    mov eax, [esp + 4]    ; Récupère l'argument (adresse de idt_ptr)
+    lidt [eax]            ; Charge l'IDT directement depuis cette adresse
     ret

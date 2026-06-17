@@ -15,16 +15,12 @@ const char kbd_azerty[] = {
 
 // C'est la fonction appelée par l'enrobage Assembleur
 void keyboard_handler_c(void) {
-    unsigned char scancode = inb(0x60); // 1. On lit le scancode
+    // Lire directement — en émulation le scancode est déjà là
+    unsigned char scancode = inb(0x60);
 
-    if (scancode < 0x80) {              // 2. Si la touche est enfoncée
-        char caractere = kbd_azerty[scancode];
-        if (caractere != 0) {
-            video_memory[cursor_pos] = caractere;
-            video_memory[cursor_pos + 1] = 0x0F; // Blanc brillant
-            cursor_pos += 2;
-        }
-    }
+    volatile char* video = (volatile char*)0xB8000;
+    video[0] = 'A';
+    video[1] = 0x02;
 
-    outb(0x20, 0x20); // 3. LE DÉTAIL CRUCIAL : On libère le PIC (EOI)
+    outb(0x20, 0x20);
 }
