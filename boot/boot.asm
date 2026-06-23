@@ -23,6 +23,8 @@ extern kernel_main
 
 _start:
     mov esp, stack_top       ; Initialise la pile
+    push ebx                 ; arg2 : pointeur multiboot_info_t
+    push eax                 ; arg1 : magic Multiboot (0x2BADB002)
     call kernel_main         ; Appelle votre fonction C
     cli
 .hang:
