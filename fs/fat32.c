@@ -28,8 +28,8 @@ static int fat32_init(void) {
     unsigned char d;
     unsigned int reserved, num_fats, fat_size;
 
-    /* Essaie les deux drives du canal primaire */
-    for (d = 0; d <= 1; d++) {
+    /* Essaie les 4 drives : primaire master/slave puis secondaire master/slave */
+    for (d = 0; d <= 3; d++) {
         if (ata_read_sector(d, 0, sector_buf) != 0) continue;
         if (sector_buf[510] == 0x55 && sector_buf[511] == 0xAA
             && sector_buf[13] != 0 && sector_buf[16] != 0) {
@@ -92,7 +92,7 @@ void fat32_cat(const char *filename) {
     unsigned int found_clus = 0, file_size = 0;
 
     if (fat32_init() != 0) {
-        kprint("[FAT32] Aucun disque FAT32 trouve (drives 0 et 1)\n");
+        kprint("[FAT32] Aucun disque FAT32 trouve (drives 0 a 3)\n");
         kprint("[FAT32] Verifie que disk.vdi est attache dans VirtualBox\n");
         return;
     }

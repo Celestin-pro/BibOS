@@ -1,0 +1,4 @@
+- Ne jamais proposer de changement d'architecture non demandé
+- Toujours lire les fichiers concernés avant d'écrire du code
+- Signaler si une demande semble entrer en conflit avec l'architecture existante, sans la modifier de ta propre initiative
+- Respecter strictement les conventions de nommage et la structure déjà en place
