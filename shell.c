@@ -2,30 +2,46 @@
 #include "./memory/pmm.h"
 #include "./memory/heap.h"
 #include "./fs/fat32.h"
+#include "./process/process.h"
+#include "./process/ring3.h"
 #include "./shell.h"
+
+extern void user_ring3_test(void);
+extern void user_ring3_test_end(void);
 
 extern int   cursor_pos;
 extern char *video_memory;
+
+/* Lance le test ring3 dans un process dédié : quand sys_exit le termine,
+ * seul ce process est marqué PROC_UNUSED — le shell (process 0) survit.  */
+static void ring3_launch(void) {
+    process_enter_ring3(user_ring3_test, user_ring3_test_end);
+}
 
 void kprint(const char *s) {
     while (*s) kputchar(*s++);
 }
 
-void kprint_uint(unsigned int n) {
+/* Formatage décimal/hexadécimal générique : `put` reçoit chaque caractère
+ * produit. kprint_uint/kprint_hex ci-dessous les appellent avec kputchar
+ * (VGA) ; le dump de panic (kernel.c) les appelle aussi avec serial_putchar
+ * — même conversion, deux sorties, sans dupliquer la logique.            */
+void fmt_uint(unsigned int n, void (*put)(char)) {
     char buf[12];
     int  i = 0;
-    if (n == 0) { kputchar('0'); return; }
+    if (n == 0) { put('0'); return; }
     while (n) { buf[i++] = '0' + (n % 10); n /= 10; }
-    while (i--) kputchar(buf[i]);
+    while (i--) put(buf[i]);
 }
 
-void kprint_hex(unsigned int n) {
+void fmt_hex(unsigned int n, void (*put)(char)) {
     const char hex[] = "0123456789ABCDEF";
     int i;
-    char buf[8];
-    for (i = 7; i >= 0; i--) { buf[i] = hex[n & 0xF]; n >>= 4; }
-    for (i = 0; i < 8; i++) kputchar(buf[i]);
+    for (i = 28; i >= 0; i -= 4) put(hex[(n >> i) & 0xF]);
 }
+
+void kprint_uint(unsigned int n) { fmt_uint(n, kputchar); }
+void kprint_hex(unsigned int n)  { fmt_hex(n, kputchar); }
 
 void kreadline(char *buf, int max) {
     int  i = 0;
@@ -81,8 +97,46 @@ void execute_command(char *input) {
         kprint("Pages libres avant kfree : "); kprint_uint(pmm_free_count()); kprint("\n");
         kfree(a); kfree(b); kfree(c);
         kprint("Pages libres apres kfree : "); kprint_uint(pmm_free_count()); kprint("\n");
+    } else if (kstrcmp(input, "ring3") == 0) {
+        kprint("[ R3 ] Lancement du process ring3 (espace d'adressage isole)...\n");
+        process_create_isolated(ring3_launch);
+    } else if (kstrcmp(input, "leaktest") == 0) {
+        /* TEST : lance 20 process ring3 isoles en sequence et verifie que
+         * pmm_free_count() revient a sa valeur de depart apres chacun.
+         * Avant le fix de process_reap_zombie() : chaque cycle perdait
+         * 1 page directory + 1 page table (PD[1]) + 1 page code user +
+         * 1 page stack user + 1 page stack kernel du process = 5 pages,
+         * qui ne revenaient jamais a la PMM. */
+        unsigned int before = pmm_free_count();
+        unsigned int after;
+        int n;
+        unsigned int t;
+
+        kprint("[ LEAK ] Pages libres avant : ");
+        kprint_uint(before);
+        kprint("\n");
+
+        for (n = 0; n < 20; n++) {
+            process_create_isolated(ring3_launch);
+            /* laisser tourner le scheduler (100 Hz) le temps que ce
+             * process demarre, fasse ses 2 syscalls, sorte, ET soit
+             * reape par le schedule() suivant.                        */
+            for (t = 0; t < 5000000; t++)
+                __asm__ __volatile__("nop");
+        }
+
+        after = pmm_free_count();
+        kprint("[ LEAK ] Pages libres apres 20 cycles ring3 : ");
+        kprint_uint(after);
+        if (after == before)
+            kprint("  -> OK, aucune fuite\n");
+        else {
+            kprint("  -> FUITE DETECTEE (delta ");
+            kprint_uint(before - after);
+            kprint(" pages)\n");
+        }
     } else if (kstrcmp(input, "help") == 0) {
-        kprint("Commandes : hello, mem, heap, cat <fichier>, help\n");
+        kprint("Commandes : hello, mem, heap, cat <fichier>, ring3, leaktest, help\n");
     } else {
         kprint("Commande inconnue\n");
     }
